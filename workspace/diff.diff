@@ -1,0 +1,254 @@
+diff --git a/source/Marlin/src/lcd/menu/menu.h b/source/Marlin/src/lcd/menu/menu.h
+index db5a0ca..f826e41 100644
+--- a/source/Marlin/src/lcd/menu/menu.h
++++ b/source/Marlin/src/lcd/menu/menu.h
+@@ -31,7 +31,7 @@
+ 
+ 
+ #define DEVICE_NAME             "Anycubic Kobra Go"
+-#define FIRMWARE_VER            "V1.2.0"
++#define FIRMWARE_VER            "V1.2.1"
+ #define BUILD_VOLUME            "220*220*250 (mm)"
+ #define TECH_SUPPORT            "https://www.anycubic.com"
+ 
+diff --git a/source/board/bsp_init.cpp b/source/board/bsp_init.cpp
+index 4a84363..4c7c857 100644
+--- a/source/board/bsp_init.cpp
++++ b/source/board/bsp_init.cpp
+@@ -58,10 +58,16 @@ void clock_init(void)
+ 		/* MPLL config. */
+ 
+ 	  stcMpllCfg.pllmDiv = 1u; /* XTAL 8M / 1 */
+-    stcMpllCfg.plln = 50u;   /* 8M*50 = 400M */
+-    stcMpllCfg.PllpDiv = 2u; /* MLLP = 200M */
+-    stcMpllCfg.PllqDiv = 2u; /* MLLQ = 200M */
+-    stcMpllCfg.PllrDiv = 2u; /* MLLR = 200M */
++    stcMpllCfg.plln = 42u;   /* 8M*42 = 336M */
++    stcMpllCfg.PllpDiv = 2u; /* MLLP = 168M */
++    stcMpllCfg.PllqDiv = 2u; /* MLLQ = 168M */
++    stcMpllCfg.PllrDiv = 2u; /* MLLR = 168M */
++
++//	  stcMpllCfg.pllmDiv = 1u; /* XTAL 8M / 1 */
++//    stcMpllCfg.plln = 50u;   /* 8M*50 = 400M */
++//    stcMpllCfg.PllpDiv = 2u; /* MLLP = 200M */
++//    stcMpllCfg.PllqDiv = 2u; /* MLLQ = 200M */
++//    stcMpllCfg.PllrDiv = 2u; /* MLLR = 200M */
+ 
+ //		stcMpllCfg.pllmDiv = 2ul; /* XTAL 16M / 2 */
+ //    stcMpllCfg.plln =	50ul;		/* 8M*50 = 400M */      
+diff --git a/source/board/bsp_pwm.cpp b/source/board/bsp_pwm.cpp
+index c684e70..cbc6553 100644
+--- a/source/board/bsp_pwm.cpp
++++ b/source/board/bsp_pwm.cpp
+@@ -79,10 +79,12 @@ void hal_fan_pwm_init(uint8_t fan)
+     /* Configuration TIMERA compare pin */
+     PORT_SetFunc(tim_port, tim_pin, tim_func, Disable);
+ 
++// PWM = 20K
+ // PCLK1 = 100M
+ // frequency = PCLK1 / Div4 / period
+-// period = 100M / Div4 / frequency
+-    period = 1250 - 1;
++// period = 100M / Div4 / frequency = 1250
++// period = 84M / Div4 / frequency  = 1050
++    period = 1050 - 1;
+ 
+     stcTimeraInit.enClkDiv = TimeraPclkDiv4;
+     stcTimeraInit.enCntMode = TimeraCountModeSawtoothWave;
+@@ -192,9 +194,11 @@ void beep_pwm_init(void)
+ 
+ 
+ 
++// PWM = 400Hz
+ // PCLK1 = 100M
+ // frequency = PCLK1 / Div8 / period
+-// period = 100M / Div8 / frequency
++// period = 100M / Div8 / 31250 = 400
++// period = 84M / Div8 / 26250 = 400
+     period = 31250;
+ 
+     stcTimeraInit.enClkDiv = TimeraPclkDiv8;
+@@ -238,7 +242,8 @@ void beep_pwm_set_frequency(uint32_t frequency, uint8_t ratio)
+ {
+     uint16_t periodValue = 0, compareValue = 0;
+ 
+-    periodValue = (uint32_t)(100000000ul / (1 << M4_TMRA4->BCSTR_f.CKDIV)) / frequency;
++    //periodValue = (uint32_t)(100000000ul / (1 << M4_TMRA4->BCSTR_f.CKDIV)) / frequency;
++		periodValue = (uint32_t)(84000000ul / (1 << M4_TMRA3->BCSTR_f.CKDIV)) / frequency;
+     BOARD_PWM_BEEP_BASE->PERAR = periodValue;
+ 
+     compareValue = (uint32_t)ratio * periodValue / 100;
+diff --git a/source/board/bsp_timer.cpp b/source/board/bsp_timer.cpp
+index f29a33f..6e63b68 100644
+--- a/source/board/bsp_timer.cpp
++++ b/source/board/bsp_timer.cpp
+@@ -304,8 +304,9 @@ void timer41_init(void)
+     stcCntInit.enClk = Timer4CntPclk;
+     stcCntInit.enClkDiv = Timer4CntPclkDiv2;
+ //    stcCntInit.u16Cycle = get_pclk1Freq() / (1 << stcCntInit.enClkDiv) * period;
+-//    stcCntInit.u16Cycle = 100000000UL / (1 << 2) * 0.001 = 50000; // 1ms
+-    stcCntInit.u16Cycle = 50000;
++//    stcCntInit.u16Cycle = 100000000UL / (1 << 1) * 0.001 = 50000; // 1ms
++//    stcCntInit.u16Cycle = 84000000UL / (1 << 1) * 0.001 = 42000; // 1ms
++    stcCntInit.u16Cycle = 42000;
+     stcCntInit.enCntMode = Timer4CntSawtoothWave;
+     stcCntInit.enZeroIntCmd = Enable;
+     stcCntInit.enPeakIntCmd = Disable;
+diff --git a/workspace/anycubic.uvprojx b/workspace/anycubic.uvprojx
+index b4488fd..48bb3ea 100644
+--- a/workspace/anycubic.uvprojx
++++ b/workspace/anycubic.uvprojx
+@@ -212,7 +212,7 @@
+             <Ra2Chk>0</Ra2Chk>
+             <Ra3Chk>0</Ra3Chk>
+             <Im1Chk>1</Im1Chk>
+-            <Im2Chk>0</Im2Chk>
++            <Im2Chk>1</Im2Chk>
+             <OnChipMemories>
+               <Ocm1>
+                 <Type>0</Type>
+@@ -301,13 +301,13 @@
+               </OCR_RVCT8>
+               <OCR_RVCT9>
+                 <Type>0</Type>
+-                <StartAddress>0x1fff8000</StartAddress>
+-                <Size>0x2f000</Size>
++                <StartAddress>0x200f0000</StartAddress>
++                <Size>0x10000</Size>
+               </OCR_RVCT9>
+               <OCR_RVCT10>
+                 <Type>0</Type>
+-                <StartAddress>0x200f0000</StartAddress>
+-                <Size>0x1000</Size>
++                <StartAddress>0x20010000</StartAddress>
++                <Size>0x10000</Size>
+               </OCR_RVCT10>
+             </OnChipMemories>
+             <RvctStartVector></RvctStartVector>
+diff --git a/source/Marlin/src/lcd/menu/menu.h b/source/Marlin/src/lcd/menu/menu.h
+index db5a0ca..f826e41 100644
+--- a/source/Marlin/src/lcd/menu/menu.h
++++ b/source/Marlin/src/lcd/menu/menu.h
+@@ -31,7 +31,7 @@
+ 
+ 
+ #define DEVICE_NAME             "Anycubic Kobra Go"
+-#define FIRMWARE_VER            "V1.2.0"
++#define FIRMWARE_VER            "V1.2.1"
+ #define BUILD_VOLUME            "220*220*250 (mm)"
+ #define TECH_SUPPORT            "https://www.anycubic.com"
+ 
+diff --git a/source/board/bsp_init.cpp b/source/board/bsp_init.cpp
+index 4a84363..4c7c857 100644
+--- a/source/board/bsp_init.cpp
++++ b/source/board/bsp_init.cpp
+@@ -58,10 +58,16 @@ void clock_init(void)
+ 		/* MPLL config. */
+ 
+ 	  stcMpllCfg.pllmDiv = 1u; /* XTAL 8M / 1 */
+-    stcMpllCfg.plln = 50u;   /* 8M*50 = 400M */
+-    stcMpllCfg.PllpDiv = 2u; /* MLLP = 200M */
+-    stcMpllCfg.PllqDiv = 2u; /* MLLQ = 200M */
+-    stcMpllCfg.PllrDiv = 2u; /* MLLR = 200M */
++    stcMpllCfg.plln = 42u;   /* 8M*42 = 336M */
++    stcMpllCfg.PllpDiv = 2u; /* MLLP = 168M */
++    stcMpllCfg.PllqDiv = 2u; /* MLLQ = 168M */
++    stcMpllCfg.PllrDiv = 2u; /* MLLR = 168M */
++
++//	  stcMpllCfg.pllmDiv = 1u; /* XTAL 8M / 1 */
++//    stcMpllCfg.plln = 50u;   /* 8M*50 = 400M */
++//    stcMpllCfg.PllpDiv = 2u; /* MLLP = 200M */
++//    stcMpllCfg.PllqDiv = 2u; /* MLLQ = 200M */
++//    stcMpllCfg.PllrDiv = 2u; /* MLLR = 200M */
+ 
+ //		stcMpllCfg.pllmDiv = 2ul; /* XTAL 16M / 2 */
+ //    stcMpllCfg.plln =	50ul;		/* 8M*50 = 400M */      
+diff --git a/source/board/bsp_pwm.cpp b/source/board/bsp_pwm.cpp
+index c684e70..cbc6553 100644
+--- a/source/board/bsp_pwm.cpp
++++ b/source/board/bsp_pwm.cpp
+@@ -79,10 +79,12 @@ void hal_fan_pwm_init(uint8_t fan)
+     /* Configuration TIMERA compare pin */
+     PORT_SetFunc(tim_port, tim_pin, tim_func, Disable);
+ 
++// PWM = 20K
+ // PCLK1 = 100M
+ // frequency = PCLK1 / Div4 / period
+-// period = 100M / Div4 / frequency
+-    period = 1250 - 1;
++// period = 100M / Div4 / frequency = 1250
++// period = 84M / Div4 / frequency  = 1050
++    period = 1050 - 1;
+ 
+     stcTimeraInit.enClkDiv = TimeraPclkDiv4;
+     stcTimeraInit.enCntMode = TimeraCountModeSawtoothWave;
+@@ -192,9 +194,11 @@ void beep_pwm_init(void)
+ 
+ 
+ 
++// PWM = 400Hz
+ // PCLK1 = 100M
+ // frequency = PCLK1 / Div8 / period
+-// period = 100M / Div8 / frequency
++// period = 100M / Div8 / 31250 = 400
++// period = 84M / Div8 / 26250 = 400
+     period = 31250;
+ 
+     stcTimeraInit.enClkDiv = TimeraPclkDiv8;
+@@ -238,7 +242,8 @@ void beep_pwm_set_frequency(uint32_t frequency, uint8_t ratio)
+ {
+     uint16_t periodValue = 0, compareValue = 0;
+ 
+-    periodValue = (uint32_t)(100000000ul / (1 << M4_TMRA4->BCSTR_f.CKDIV)) / frequency;
++    //periodValue = (uint32_t)(100000000ul / (1 << M4_TMRA4->BCSTR_f.CKDIV)) / frequency;
++		periodValue = (uint32_t)(84000000ul / (1 << M4_TMRA3->BCSTR_f.CKDIV)) / frequency;
+     BOARD_PWM_BEEP_BASE->PERAR = periodValue;
+ 
+     compareValue = (uint32_t)ratio * periodValue / 100;
+diff --git a/source/board/bsp_timer.cpp b/source/board/bsp_timer.cpp
+index f29a33f..6e63b68 100644
+--- a/source/board/bsp_timer.cpp
++++ b/source/board/bsp_timer.cpp
+@@ -304,8 +304,9 @@ void timer41_init(void)
+     stcCntInit.enClk = Timer4CntPclk;
+     stcCntInit.enClkDiv = Timer4CntPclkDiv2;
+ //    stcCntInit.u16Cycle = get_pclk1Freq() / (1 << stcCntInit.enClkDiv) * period;
+-//    stcCntInit.u16Cycle = 100000000UL / (1 << 2) * 0.001 = 50000; // 1ms
+-    stcCntInit.u16Cycle = 50000;
++//    stcCntInit.u16Cycle = 100000000UL / (1 << 1) * 0.001 = 50000; // 1ms
++//    stcCntInit.u16Cycle = 84000000UL / (1 << 1) * 0.001 = 42000; // 1ms
++    stcCntInit.u16Cycle = 42000;
+     stcCntInit.enCntMode = Timer4CntSawtoothWave;
+     stcCntInit.enZeroIntCmd = Enable;
+     stcCntInit.enPeakIntCmd = Disable;
+diff --git a/workspace/anycubic.uvprojx b/workspace/anycubic.uvprojx
+index b4488fd..48bb3ea 100644
+--- a/workspace/anycubic.uvprojx
++++ b/workspace/anycubic.uvprojx
+@@ -212,7 +212,7 @@
+             <Ra2Chk>0</Ra2Chk>
+             <Ra3Chk>0</Ra3Chk>
+             <Im1Chk>1</Im1Chk>
+-            <Im2Chk>0</Im2Chk>
++            <Im2Chk>1</Im2Chk>
+             <OnChipMemories>
+               <Ocm1>
+                 <Type>0</Type>
+@@ -301,13 +301,13 @@
+               </OCR_RVCT8>
+               <OCR_RVCT9>
+                 <Type>0</Type>
+-                <StartAddress>0x1fff8000</StartAddress>
+-                <Size>0x2f000</Size>
++                <StartAddress>0x200f0000</StartAddress>
++                <Size>0x10000</Size>
+               </OCR_RVCT9>
+               <OCR_RVCT10>
+                 <Type>0</Type>
+-                <StartAddress>0x200f0000</StartAddress>
+-                <Size>0x1000</Size>
++                <StartAddress>0x20010000</StartAddress>
++                <Size>0x10000</Size>
+               </OCR_RVCT10>
+             </OnChipMemories>
+             <RvctStartVector></RvctStartVector>
